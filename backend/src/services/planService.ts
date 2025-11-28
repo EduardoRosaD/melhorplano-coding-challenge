@@ -191,33 +191,40 @@ export function getAllPlans(): Plan[] {
   return allPlansMock;
 }
 
-export function handleThing(
+function filterByMinSpeed(plans: Plan[], minSpeed?: number): Plan[] {
+  if (!minSpeed) {
+    return plans;
+  }
+  return plans.filter((plan) => {
+    const speedValue = parseInt(plan.speed.replace("Mbps", ""));
+    return speedValue >= minSpeed;
+  });
+}
+
+function filterByMaxPrice(plans: Plan[], maxPrice?: number): Plan[] {
+  if (!maxPrice) {
+    return plans;
+  }
+  return plans.filter((plan) => plan.price <= maxPrice);
+}
+
+function clonePlansUnder100(plans: Plan[]): Plan[] {
+  return plans.map((plan) => {
+    if (plan.price < 100) {
+      return { ...plan };
+    }
+    return plan;
+  });
+}
+
+export function handlePlan(
   plans: Plan[],
   minSpeed?: number,
   maxPrice?: number
 ): Plan[] {
-  return plans
-    .filter((plan) => {
-      if (minSpeed) {
-        const speedValue = parseInt(plan.speed.replace("Mbps", ""));
-        if (speedValue < minSpeed) {
-          return false;
-        }
-      }
-      return true;
-    })
-    .filter((plan) => {
-      if (maxPrice && plan.price > maxPrice) {
-        return false;
-      }
-      return true;
-    })
-    .map((plan) => {
-      if (plan.price < 100) {
-        return { ...plan };
-      }
-      return plan;
-    });
+  let filtered = filterByMinSpeed(plans, minSpeed);
+  filtered = filterByMaxPrice(filtered, maxPrice);
+  return clonePlansUnder100(filtered);
 }
 
 export interface PlanSearchFilters {
@@ -295,6 +302,78 @@ export function searchPlans(
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const plans = filteredPlansCache ? filteredPlansCache.slice(start, end) : [];
+
+  return {
+    plans,
+    total,
+    page,
+    pageSize,
+    totalPages,
+  };
+}
+
+export interface UserPreferences {
+  operator?: string;
+  city?: string;
+  maxPrice?: number;
+  minDataCap?: number;
+}
+
+export interface PlanWithAffinity extends Plan {
+  affinityScore: number;
+}
+
+export function calculateAffinityScore(
+  plan: Plan,
+  preferences: UserPreferences
+): number {
+  let score = 0;
+
+  if (preferences.operator && plan.operator.toLowerCase() === preferences.operator.toLowerCase()) {
+    score += 40;
+  }
+
+  if (preferences.city && plan.city.toLowerCase() === preferences.city.toLowerCase()) {
+    score += 30;
+  }
+
+  if (preferences.maxPrice !== undefined) {
+    if (plan.price <= preferences.maxPrice) {
+      score += 20;
+    }
+  } else {
+    score += 20;
+  }
+
+  if (preferences.minDataCap !== undefined) {
+    if (plan.dataCap >= preferences.minDataCap) {
+      score += 10;
+    }
+  } else {
+    score += 10;
+  }
+
+  return Math.round(score * 100) / 100;
+}
+
+
+export function getPlansByAffinity(
+  preferences: UserPreferences,
+  page: number = 1,
+  pageSize: number = 10
+): PaginatedPlans & { plans: PlanWithAffinity[] } {
+  const plansWithAffinity: PlanWithAffinity[] = allPlansMock.map((plan) => ({
+    ...plan,
+    affinityScore: calculateAffinityScore(plan, preferences),
+  }));
+
+  plansWithAffinity.sort((a, b) => b.affinityScore - a.affinityScore);
+
+  const total = plansWithAffinity.length;
+  const totalPages = Math.ceil(total / pageSize);
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+  const plans = plansWithAffinity.slice(start, end);
 
   return {
     plans,
