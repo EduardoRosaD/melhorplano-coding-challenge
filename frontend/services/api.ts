@@ -22,3 +22,17 @@ export async function fetchFilteredPlans(params: PlanSearchParams) {
   const { data } = await api.get("/plans/search", { params });
   return data;
 }
+
+export interface AffinitySearchParams {
+  operator?: string;
+  city?: string;
+  maxPrice?: number;
+  minDataCap?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export async function fetchPlansByAffinity(params: AffinitySearchParams) {
+  const { data } = await api.get("/plans/affinity", { params });
+  return data;
+}

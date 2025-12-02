@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import {
   getPlans,
-  handleThing,
+  handlePlan,
   searchPlans,
   PlanSearchFilters,
+  getPlansByAffinity,
+  UserPreferences,
 } from "../services/planService";
 import { Plan } from "../models/plan";
 
@@ -32,7 +34,7 @@ export function filteredPlans(req: Request, res: Response) {
     ? parseFloat(req.query.maxPrice as string)
     : undefined;
   const plans = getPlans();
-  const filtered = handleThing(plans, minSpeed, maxPrice);
+  const filtered = handlePlan(plans, minSpeed, maxPrice);
   res.json(filtered);
 }
 
@@ -62,4 +64,26 @@ export function planSearch(req: Request, res: Response) {
   const paginated = searchPlans(filters, Number(page), Number(pageSize));
 
   res.json(paginated);
+}
+
+export function plansByAffinity(req: Request, res: Response) {
+  const {
+    operator,
+    city,
+    maxPrice,
+    minDataCap,
+    page = "1",
+    pageSize = "10",
+  } = req.query;
+
+  const preferences: UserPreferences = {
+    operator: operator ? String(operator) : undefined,
+    city: city ? String(city) : undefined,
+    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    minDataCap: minDataCap ? Number(minDataCap) : undefined,
+  };
+
+  const result = getPlansByAffinity(preferences, Number(page), Number(pageSize));
+
+  res.json(result);
 }
